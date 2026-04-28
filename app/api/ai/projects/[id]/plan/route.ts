@@ -40,9 +40,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/ai/projects
       },
     })
 
-    if (taskData.children) {
+    const subtasks = taskData.children || (taskData as any).subtasks
+    if (subtasks) {
       let subOrder = 0
-      for (const child of taskData.children) {
+      for (const child of subtasks) {
         await prisma.task.create({
           data: {
             projectId,
@@ -70,5 +71,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/ai/projects
     },
   })
 
-  return Response.json({ ok: true, taskCount: tasks.length })
+  const project = await prisma.project.update({
+    where: { id: projectId },
+    data: { status: 'planning' },
+  })
+  const totalCreated = await prisma.task.count({ where: { projectId } })
+  return Response.json({ ok: true, created: totalCreated, projectStatus: project.status })
 }

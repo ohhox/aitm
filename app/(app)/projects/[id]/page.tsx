@@ -8,6 +8,9 @@ interface Task {
   title: string
   status: string
   parentId: number | null
+  description: string | null
+  acceptanceCriteria: string | null
+  notes: string | null
   children: Task[]
   report?: { id: number; status: string } | null
 }
@@ -46,19 +49,29 @@ const levelConfig: Record<string, { label: string; color: string }> = {
   STEP: { label: 'STEP', color: 'text-[#9CA3AF]' },
 }
 
-function TaskRow({ task, depth = 0 }: { task: Task; depth?: number }) {
+function TaskRow({ task, depth = 0, selectedId, onSelect }: {
+  task: Task
+  depth?: number
+  selectedId: number | null
+  onSelect: (task: Task) => void
+}) {
   const [open, setOpen] = useState(depth === 0)
   const cfg = statusConfig[task.status] || statusConfig.todo
   const hasChildren = task.children && task.children.length > 0
   const badgeLabel = task.status === 'pending_review' ? 'Review' : task.status === 'in_progress' ? 'Active' : null
+  const isSelected = task.id === selectedId
 
   return (
     <div>
       <div
-        className={`flex items-center border-b border-[#E2E6EC] transition-colors hover:bg-blue-50 cursor-pointer ${
-          task.status === 'pending_review' ? 'bg-red-50/60' : ''
+        className={`flex items-center border-b border-[#E2E6EC] transition-colors cursor-pointer ${
+          isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' :
+          task.status === 'pending_review' ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-blue-50/60'
         }`}
-        onClick={() => hasChildren && setOpen(!open)}
+        onClick={() => {
+          onSelect(task)
+          if (hasChildren) setOpen(!open)
+        }}
       >
         <div style={{ paddingLeft: `${depth * 24 + 14}px` }} className="flex items-center gap-2 flex-1 py-2 pr-3">
           {hasChildren ? (
@@ -78,7 +91,7 @@ function TaskRow({ task, depth = 0 }: { task: Task; depth?: number }) {
       {open && hasChildren && (
         <div>
           {task.children.map((child) => (
-            <TaskRow key={child.id} task={child} depth={depth + 1} />
+            <TaskRow key={child.id} task={child} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} />
           ))}
         </div>
       )}
@@ -92,7 +105,13 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [logs, setLogs] = useState<Log[]>([])
   const [activeTab, setActiveTab] = useState<'activity' | 'detail' | 'history'>('activity')
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
+
+  const handleSelectTask = (task: Task) => {
+    setSelectedTask(task)
+    setActiveTab('detail')
+  }
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -154,6 +173,9 @@ export default function ProjectPage() {
           }`}>
             <span className="w-1.5 h-1.5 rounded-full bg-current" />{project.status}
           </span>
+          <Link href={`/projects/${id}/edit`} className="text-xs font-semibold border border-[#E2E6EC] px-3 py-1.5 rounded hover:bg-[#F7F8FA] transition-colors">
+            Edit
+          </Link>
           <Link href={`/projects/${id}/tasks/new`} className="text-xs font-semibold border border-[#E2E6EC] px-3 py-1.5 rounded hover:bg-[#F7F8FA] transition-colors">
             + Add Task
           </Link>
@@ -197,7 +219,7 @@ export default function ProjectPage() {
                 <Link href={`/projects/${id}/tasks/new`} className="text-blue-600 hover:underline text-xs mt-1 inline-block">+ เพิ่ม task</Link>
               </div>
             ) : (
-              project.tasks.map((t) => <TaskRow key={t.id} task={t} depth={0} />)
+              project.tasks.map((t) => <TaskRow key={t.id} task={t} depth={0} selectedId={selectedTask?.id ?? null} onSelect={handleSelectTask} />)
             )}
           </div>
         </div>
@@ -270,10 +292,76 @@ export default function ProjectPage() {
             </div>
           )}
 
-          {/* Task detail placeholder */}
+          {/* Task Detail */}
           {activeTab === 'detail' && (
-            <div className="flex-1 overflow-y-auto p-5">
-              <p className="text-sm text-[#9CA3AF]">คลิก task ใน tree เพื่อดูรายละเอียด</p>
+            <div className="flex-1 overflow-y-auto">
+              {!selectedTask ? (
+                <div className="p-8 text-center text-sm text-[#9CA3AF]">คลิก task ใน tree เพื่อดูรายละเอียด</div>
+              ) : (
+                <div className="p-5 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-[14px] h-[14px] rounded-full shrink-0 flex items-center justify-center ${statusConfig[selectedTask.status]?.dot || statusConfig.todo.dot}`}>
+                      {selectedTask.status === 'done' && <span className="text-white text-[8px]">✓</span>}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-[14px] font-semibold text-[#111827] leading-snug">{selectedTask.title}</div>
+                      <div className="text-[11px] text-[#9CA3AF] mt-0.5 uppercase font-semibold">{selectedTask.status.replace('_', ' ')}</div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {selectedTask.description && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] mb-1.5">Description</div>
+                      <div className="text-[12.5px] text-[#374151] whitespace-pre-wrap leading-relaxed bg-[#F7F8FA] rounded-md p-3 border border-[#E2E6EC]">
+                        {selectedTask.description}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Acceptance Criteria */}
+                  {selectedTask.acceptanceCriteria && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] mb-1.5">Acceptance Criteria</div>
+                      <div className="space-y-1">
+                        {(() => { try { return JSON.parse(selectedTask.acceptanceCriteria!) } catch { return selectedTask.acceptanceCriteria!.split('\n') } })().filter(Boolean).map((c: string, i: number) => (
+                          <div key={i} className="flex gap-2 text-[12.5px] text-[#374151]">
+                            <span className="text-green-500 font-bold shrink-0">✓</span>
+                            <span>{c}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {selectedTask.notes && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] mb-1.5">Notes</div>
+                      <div className="text-[12.5px] text-[#6B7280] whitespace-pre-wrap leading-relaxed bg-yellow-50 rounded-md p-3 border border-yellow-200">
+                        {selectedTask.notes}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2 border-t border-[#E2E6EC]">
+                    <Link
+                      href={`/projects/${id}/tasks/${selectedTask.id}/edit`}
+                      className="text-xs font-semibold border border-[#E2E6EC] px-3 py-1.5 rounded hover:bg-[#F7F8FA] transition-colors"
+                    >
+                      Edit Task
+                    </Link>
+                    {selectedTask.status === 'pending_review' && selectedTask.report && (
+                      <Link href={`/projects/${id}/reviews/${selectedTask.report.id}`} className="text-xs font-semibold bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 transition-colors">
+                        Review Report →
+                      </Link>
+                    )}
+                    <span className="text-[11px] text-[#9CA3AF] self-center ml-auto">Task #{selectedTask.id}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

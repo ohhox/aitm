@@ -7,6 +7,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<'/api/projects/[i
     where: { id: Number(id) },
     include: {
       tasks: {
+        where: { parentId: null },
         orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
         include: {
           children: {

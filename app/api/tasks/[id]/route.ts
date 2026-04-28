@@ -22,14 +22,17 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/tasks/[id]
   const task = await prisma.task.update({
     where: { id: Number(id) },
     data: {
-      title: body.title,
-      description: body.description,
-      status: body.status,
-      acceptanceCriteria: body.acceptanceCriteria
-        ? JSON.stringify(body.acceptanceCriteria)
-        : undefined,
-      notes: body.notes,
-      order: body.order,
+      ...(body.title !== undefined && { title: body.title }),
+      ...(body.description !== undefined && { description: body.description }),
+      ...(body.status !== undefined && { status: body.status }),
+      ...(body.acceptanceCriteria !== undefined && {
+        acceptanceCriteria: body.acceptanceCriteria?.length
+          ? JSON.stringify(body.acceptanceCriteria)
+          : null,
+      }),
+      ...(body.notes !== undefined && { notes: body.notes }),
+      ...(body.order !== undefined && { order: body.order }),
+      ...(body.parentId !== undefined && { parentId: body.parentId }),
     },
   })
 
