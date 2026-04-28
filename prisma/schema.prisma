@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  goals       String?
+  techStack   String?
+  constraints String?
+  context     String?
+  status      String   @default("planning")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks        Task[]
+  activityLogs ActivityLog[]
+}
+
+model Task {
+  id                 Int      @id @default(autoincrement())
+  projectId          Int
+  parentId           Int?
+  title              String
+  description        String?
+  status             String   @default("todo")
+  order              Int      @default(0)
+  acceptanceCriteria String?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent       Task?         @relation("TaskChildren", fields: [parentId], references: [id])
+  children     Task[]        @relation("TaskChildren")
+  activityLogs ActivityLog[]
+  report       Report?
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+  taskId     Int?
+  message    String
+  level      String   @default("INFO")
+  step       Int?
+  totalSteps Int?
+  createdAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId], references: [id])
+}
+
+model Report {
+  id           Int      @id @default(autoincrement())
+  taskId       Int      @unique
+  summary      String
+  filesChanged String?
+  concerns     String?
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+
+  task   Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  review Review?
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  reportId  Int      @unique
+  decision  String
+  comments  String?
+  createdAt DateTime @default(now())
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
